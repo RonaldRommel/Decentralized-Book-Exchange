@@ -1,0 +1,40 @@
+{
+  "books": [
+    {
+      "PutRequest": {
+        "Item": {
+          "book_id": { "S": "book-001" },
+          "title": { "S": "Atomic Habits" },
+          "author": { "S": "James Clear" },
+          "owner_id": { "S": "1" },
+          "available": { "BOOL": true },
+          "created_at": { "S": "2025-07-14T12:00:00Z" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "book_id": { "S": "book-002" },
+          "title": { "S": "Deep Work" },
+          "author": { "S": "Cal Newport" },
+          "owner_id": { "S": "2" },
+          "available": { "BOOL": false },
+          "created_at": { "S": "2025-07-14T12:10:00Z" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "book_id": { "S": "book-003" },
+          "title": { "S": "The Lean Startup" },
+          "author": { "S": "Eric Ries" },
+          "owner_id": { "S": "3" },
+          "available": { "BOOL": true },
+          "created_at": { "S": "2025-07-14T12:20:00Z" }
+        }
+      }
+    }
+  ]
+}

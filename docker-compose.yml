@@ -1,0 +1,58 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bookdb
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  dynamodb:
+    image: amazon/dynamodb-local
+    container_name: dynamodb
+    ports:
+      - "8000:8000"
+    command: -jar DynamoDBLocal.jar -sharedDb -dbPath /data
+    volumes:
+      - ./dynamodb:/data
+
+  inventory-service:
+    build: ./inventory-service
+    ports:
+      - "3000:3000"
+    depends_on:
+      - dynamodb
+    env_file:
+      - ./inventory-service/.env
+
+  user-service:
+    build: ./user-service
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mysql
+    env_file:
+      - ./user-service/.env
+
+  exchange-service:
+    build: ./exchange-service
+    ports:
+      - "3002:3002"
+    depends_on:
+      - mysql
+    env_file:
+      - ./exchange-service/.env
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672" # AMQP protocol
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
