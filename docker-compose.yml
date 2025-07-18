@@ -11,6 +11,19 @@ services:
     volumes:
       - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  user-service:
+    build: ./user-service
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mysql
+    env_file:
+      - ./user-service/.env
+    volumes:
+      - .:/app
+    working_dir: /app/user-service
+    command: npm run dev
+
   dynamodb:
     image: amazon/dynamodb-local
     container_name: dynamodb
@@ -28,15 +41,11 @@ services:
       - dynamodb
     env_file:
       - ./inventory-service/.env
+    volumes:
+      - .:/app
+    working_dir: /app/inventory-service
+    command: npm run dev
 
-  user-service:
-    build: ./user-service
-    ports:
-      - "3001:3001"
-    depends_on:
-      - mysql
-    env_file:
-      - ./user-service/.env
 
   exchange-service:
     build: ./exchange-service
@@ -46,6 +55,10 @@ services:
       - mysql
     env_file:
       - ./exchange-service/.env
+    volumes:
+      - .:/app
+    working_dir: /app/exchange-service
+    command: npm run dev
 
   rabbitmq:
     image: rabbitmq:3-management

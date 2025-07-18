@@ -1,76 +1,97 @@
 const express = require("express");
-const mysql = require("mysql2/promise");
 require("dotenv").config();
-const { connectRabbit, publishEvent } = require("./rabbit");
-
+const { getChannel, connectRabbitMQ } = require("../utils/rabbitmq");
+const db = require("../utils/db");
 
 const app = express();
 app.use(express.json());
 
-// Create MySQL pool
-const db = mysql.createPool({
-  host: process.env.MYSQL_HOST,
-  user: process.env.MYSQL_USER,
-  password: process.env.MYSQL_PASSWORD,
-  database: process.env.MYSQL_DATABASE,
-});
-
-
-(async () => {
-  await connectRabbit();
-})();
-
-
-
-// Helper function to check if user exists
-async function userExists(userId) {
-  const [rows] = await db.query("SELECT 1 FROM users WHERE id = ?", [userId]);
-  return rows.length > 0;
-}
-
-// Helper function to check if book exists
-// This assumes you have inventory-service endpoint to check book existence
-// For now, stub to always true or add actual call to inventory-service
-async function bookExists(bookId) {
-  // TODO: Replace with actual inventory-service call or DynamoDB check
-  return true;
-}
-
-// POST /exchanges - create a borrow request
-app.post("/exchanges", async (req, res) => {
+app.post("/exchange", async (req, res) => {
   const { book_id, borrower_id, lender_id } = req.body;
 
-  if (!book_id || !borrower_id || !lender_id) {
-    return res
-      .status(400)
-      .json({ error: "book_id, borrower_id and lender_id are required" });
-  }
+  const result = await db.query(
+    "INSERT INTO exchanges (book_id, borrower_id, lender_id, state) VALUES (?, ?, ?, 'pending-validation')",
+    [book_id, borrower_id, lender_id]
+  );
 
-  try {
-    // Validate users
-    if (!(await userExists(borrower_id)) || !(await userExists(lender_id))) {
-      return res.status(400).json({ error: "Invalid borrower or lender ID" });
-    }
+  const exchangeId = result.insertId;
+  const channel = getChannel();
 
-    // Validate book
-    if (!(await bookExists(book_id))) {
-      return res.status(404).json({ error: "Book not found" });
-    }
+  // Publish validation events
+  channel.assertQueue("validate-user");
+  channel.assertQueue("validate-book");
 
-    // Insert new exchange request
-    const [result] = await db.query(
-      "INSERT INTO exchanges (book_id, borrower_id, lender_id, state) VALUES (?, ?, ?, 'requested')",
-      [book_id, borrower_id, lender_id]
-    );
+  channel.sendToQueue(
+    "validate-user",
+    Buffer.from(
+      JSON.stringify({
+        exchange_id: exchangeId,
+        user_id: borrower_id,
+      })
+    )
+  );
 
-    res
-      .status(201)
-      .json({ exchange_id: result.insertId, message: "Exchange requested" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal server error" });
-  }
+  channel.sendToQueue(
+    "validate-book",
+    Buffer.from(
+      JSON.stringify({
+        exchange_id: exchangeId,
+        book_id: book_id,
+      })
+    )
+  );
+  res.status(202).json({ message: "Exchange created, pending validation" });
 });
+
+// // Helper function to check if user exists
+// async function userExists(userId) {
+//   const [rows] = await db.query("SELECT 1 FROM users WHERE id = ?", [userId]);
+//   return rows.length > 0;
+// }
+
+// // Helper function to check if book exists
+// // This assumes you have inventory-service endpoint to check book existence
+// // For now, stub to always true or add actual call to inventory-service
+// async function bookExists(bookId) {
+//   // TODO: Replace with actual inventory-service call or DynamoDB check
+//   return true;
+// }
+
+// // POST /exchanges - create a borrow request
+// app.post("/exchanges", async (req, res) => {
+//   const { book_id, borrower_id, lender_id } = req.body;
+
+//   if (!book_id || !borrower_id || !lender_id) {
+//     return res
+//       .status(400)
+//       .json({ error: "book_id, borrower_id and lender_id are required" });
+//   }
+
+//   try {
+//     // Validate users
+//     if (!(await userExists(borrower_id)) || !(await userExists(lender_id))) {
+//       return res.status(400).json({ error: "Invalid borrower or lender ID" });
+//     }
+
+//     // Validate book
+//     if (!(await bookExists(book_id))) {
+//       return res.status(404).json({ error: "Book not found" });
+//     }
+
+//     // Insert new exchange request
+//     const [result] = await db.query(
+//       "INSERT INTO exchanges (book_id, borrower_id, lender_id, state) VALUES (?, ?, ?, 'requested')",
+//       [book_id, borrower_id, lender_id]
+//     );
+
+//     res
+//       .status(201)
+//       .json({ exchange_id: result.insertId, message: "Exchange requested" });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// });
 
 // GET /exchanges/:id - get exchange details
 app.get("/exchanges/:id", async (req, res) => {
@@ -104,13 +125,9 @@ app.put("/exchanges/:id/state", async (req, res) => {
   ];
 
   if (!state || !validStates.includes(state)) {
-    return res
-      .status(400)
-      .json({
-        error: `State is required and must be one of: ${validStates.join(
-          ", "
-        )}`,
-      });
+    return res.status(400).json({
+      error: `State is required and must be one of: ${validStates.join(", ")}`,
+    });
   }
 
   try {
@@ -152,6 +169,10 @@ app.get("/exchanges", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
-  console.log(`Exchange service running on port ${PORT}`);
-});
+async function start() {
+  await connectRabbitMQ();
+  app.listen(PORT, () => {
+    console.log(`Exchange service running on port ${PORT}`);
+  });
+}
+start();

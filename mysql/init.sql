@@ -16,11 +16,11 @@ CREATE TABLE IF NOT EXISTS exchanges (
   book_id VARCHAR(100) NOT NULL,
   borrower_id INT NOT NULL,
   lender_id INT NOT NULL,
-  state ENUM('requested', 'accepted', 'rejected', 'returned', 'completed', 'cancelled') NOT NULL,
+  state ENUM('requested', 'completed', 'rejected', 'cancelled','pending-validation') DEFAULT 'requested',
   requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (borrower_id) REFERENCES users(id),
-  FOREIGN KEY (lender_id) REFERENCES users(id)
+  validation_status_user ENUM('pending', 'valid', 'invalid') DEFAULT 'pending',
+  validation_status_book ENUM('pending', 'valid', 'invalid') DEFAULT 'pending'
 );
 
 INSERT INTO users (id, name, email, reputation, location)
@@ -30,9 +30,9 @@ VALUES
   (3, 'Charlie Nguyen', 'charlie@example.com', 30, 'San Francisco, CA');
 
 
-INSERT INTO exchanges (book_id, borrower_id, lender_id, state)
+INSERT INTO exchanges (book_id, borrower_id, lender_id, state,validation_status_user , validation_status_book)
 VALUES
-  ('book-001', 1, 2, 'requested'),
-  ('book-002', 3, 1, 'completed');
+  ('book-001', 1, 2, 'requested',"valid","valid"),
+  ('book-002', 3, 1, 'requested',"valid","valid");
 
 
