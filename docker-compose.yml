@@ -69,3 +69,25 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+
+  user-validation:
+    build: ./user-validation
+    ports:
+      - "3003:3003"
+    depends_on:
+      - rabbitmq
+    volumes:
+      - .:/app
+    working_dir: /app/user-validation
+    command: npm run dev
+
+  book-validation:
+    build: ./book-validation
+    ports:
+      - "3004:3004"
+    depends_on:
+      - rabbitmq
+    volumes:
+      - .:/app
+    working_dir: /app/book-validation
+    command: npm run dev

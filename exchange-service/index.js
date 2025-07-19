@@ -9,11 +9,10 @@ app.use(express.json());
 app.post("/exchange", async (req, res) => {
   const { book_id, borrower_id, lender_id } = req.body;
 
-  const result = await db.query(
+  const [result] = await db.query(
     "INSERT INTO exchanges (book_id, borrower_id, lender_id, state) VALUES (?, ?, ?, 'pending-validation')",
     [book_id, borrower_id, lender_id]
   );
-
   const exchangeId = result.insertId;
   const channel = getChannel();
 
@@ -40,7 +39,9 @@ app.post("/exchange", async (req, res) => {
       })
     )
   );
-  res.status(202).json({ message: "Exchange created, pending validation" });
+  res.status(202).json({
+    message: "Exchange created, pending validation ok",
+  });
 });
 
 // // Helper function to check if user exists
