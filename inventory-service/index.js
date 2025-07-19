@@ -1,9 +1,12 @@
 const express = require("express");
 const AWS = require("aws-sdk");
 require("dotenv").config();
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./docs/swagger");
 
 const app = express();
 app.use(express.json());
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 const dynamo = new AWS.DynamoDB.DocumentClient({
   region: process.env.AWS_REGION,
@@ -12,7 +15,25 @@ const dynamo = new AWS.DynamoDB.DocumentClient({
   secretAccessKey: "dummy",
 });
 
-// Routes
+/**
+ * @swagger
+ * /books:
+ *   get:
+ *     summary: Get all books
+ *     tags: [Books]
+ *     responses:
+ *       200:
+ *         description: A list of books
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Book'
+ *       500:
+ *         description: Server error
+ */
+
 app.get("/books", async (req, res) => {
   try {
     const result = await dynamo.scan({ TableName: "books" }).promise();
@@ -21,6 +42,32 @@ app.get("/books", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * @swagger
+ * /books/{book_id}:
+ *   get:
+ *     summary: Get a single book by ID
+ *     tags: [Books]
+ *     parameters:
+ *       - in: path
+ *         name: book_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the book
+ *     responses:
+ *       200:
+ *         description: Book details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Book'
+ *       404:
+ *         description: Book not found
+ *       500:
+ *         description: Server error
+ */
 
 app.get("/books/:book_id", async (req, res) => {
   const { book_id } = req.params;
@@ -43,6 +90,43 @@ app.get("/books/:book_id", async (req, res) => {
     res.status(500).json({ error: "Failed to retrieve book" });
   }
 });
+
+/**
+ * @swagger
+ * /books:
+ *   post:
+ *     summary: Create a new book
+ *     tags: [Books]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - owner_id
+ *               - available
+ *             properties:
+ *               title:
+ *                 type: string
+ *               author:
+ *                 type: string
+ *               owner_id:
+ *                 type: string
+ *               available:
+ *                 type: boolean
+ *               created_at:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       201:
+ *         description: Book created successfully
+ *       400:
+ *         description: Invalid input
+ *       500:
+ *         description: Server error
+ */
 
 app.post("/books", async (req, res) => {
   const { title, author, owner_id, available, created_at } = req.body;
@@ -79,6 +163,36 @@ app.post("/books", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /books/{id}:
+ *   put:
+ *     summary: Update book details
+ *     tags: [Books]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Book ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               available:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Book updated successfully
+ *       500:
+ *         description: Server error
+ */
 app.put("/books/:id", async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
@@ -107,6 +221,25 @@ app.put("/books/:id", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /books/{id}:
+ *   delete:
+ *     summary: Delete a book
+ *     tags: [Books]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Book ID
+ *     responses:
+ *       200:
+ *         description: Book deleted
+ *       500:
+ *         description: Server error
+ */
 app.delete("/books/:id", async (req, res) => {
   const { id } = req.params;
 

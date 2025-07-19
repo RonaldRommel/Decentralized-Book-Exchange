@@ -2,10 +2,46 @@ const express = require("express");
 const mysql = require("mysql2/promise");
 require("dotenv").config();
 const db = require("../utils/db.js");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./docs/swagger");
 
 const app = express();
 app.use(express.json());
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+/**
+ * @swagger
+ * /users:
+ *   post:
+ *     summary: Create a new user
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *       500:
+ *         description: Server error
+ */
 app.post("/users", async (req, res) => {
   const { name, email } = req.body;
   try {
@@ -19,6 +55,31 @@ app.post("/users", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /users/{id}:
+ *   get:
+ *     summary: Get a user by id
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User object
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 app.get("/users/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -31,6 +92,38 @@ app.get("/users/:id", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /users/{id}/reputation:
+ *   put:
+ *     summary: Update user's reputation
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReputationUpdate'
+ *     responses:
+ *       200:
+ *         description: Reputation updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Server error
+ */
 app.put("/users/:id/reputation", async (req, res) => {
   const { id } = req.params;
   const { reputation } = req.body;

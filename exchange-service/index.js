@@ -2,9 +2,56 @@ const express = require("express");
 require("dotenv").config();
 const { getChannel, connectRabbitMQ } = require("../utils/rabbitmq");
 const db = require("../utils/db");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./docs/swagger");
 
 const app = express();
 app.use(express.json());
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+/**
+ * @swagger
+ * /exchange:
+ *   post:
+ *     summary: Create a new book exchange
+ *     description: Creates a new exchange and triggers validation for user and book.
+ *     tags: [Exchange]  
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               book_id:
+ *                 type: integer
+ *                 example: 123
+ *               borrower_id:
+ *                 type: integer
+ *                 example: 456
+ *               lender_id:
+ *                 type: integer
+ *                 example: 789
+ *             required:
+ *               - book_id
+ *               - borrower_id
+ *               - lender_id
+ *     responses:
+ *       '202':
+ *         description: Exchange created, pending validation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Exchange created, pending validation ok
+ *       '400':
+ *         description: Invalid request payload
+ *       '500':
+ *         description: Server error
+ */
 
 app.post("/exchange", async (req, res) => {
   const { book_id, borrower_id, lender_id } = req.body;
@@ -94,7 +141,43 @@ app.post("/exchange", async (req, res) => {
 //   }
 // });
 
-// GET /exchanges/:id - get exchange details
+/**
+ * @swagger
+ * /exchanges/{id}:
+ *   get:
+ *     summary: Get a specific exchange by ID
+ *     tags: [Exchange]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: ID of the exchange
+ *     responses:
+ *       200:
+ *         description: Exchange found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 book_id:
+ *                   type: integer
+ *                 borrower_id:
+ *                   type: integer
+ *                 lender_id:
+ *                   type: integer
+ *                 state:
+ *                   type: string
+ *       404:
+ *         description: Exchange not found
+ *       500:
+ *         description: Server error
+ */
+
 app.get("/exchanges/:id", async (req, res) => {
   const exchangeId = req.params.id;
 
@@ -112,7 +195,50 @@ app.get("/exchanges/:id", async (req, res) => {
   }
 });
 
-// PUT /exchanges/:id/state - update exchange state
+/**
+ * @swagger
+ * /exchanges/{id}/state:
+ *   put:
+ *     summary: Update the state of an exchange
+ *     tags: [Exchange]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: Exchange ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - state
+ *             properties:
+ *               state:
+ *                 type: string
+ *                 enum: [requested, accepted, rejected, returned, completed, cancelled]
+ *     responses:
+ *       200:
+ *         description: Exchange state updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Exchange state updated to accepted
+ *       400:
+ *         description: Invalid state
+ *       404:
+ *         description: Exchange not found
+ *       500:
+ *         description: Server error
+ */
+
 app.put("/exchanges/:id/state", async (req, res) => {
   const exchangeId = req.params.id;
   const { state } = req.body;
@@ -148,7 +274,48 @@ app.put("/exchanges/:id/state", async (req, res) => {
   }
 });
 
-// GET /exchanges?user_id= - list exchanges for a user (borrower or lender)
+/**
+ * @swagger
+ * /exchanges:
+ *   get:
+ *     summary: Get all exchanges for a specific user (borrower or lender)
+ *     tags: [Exchange]
+ *     parameters:
+ *       - in: query
+ *         name: user_id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: User ID to fetch related exchanges
+ *     responses:
+ *       200:
+ *         description: List of exchanges for the user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   book_id:
+ *                     type: integer
+ *                   borrower_id:
+ *                     type: integer
+ *                   lender_id:
+ *                     type: integer
+ *                   state:
+ *                     type: string
+ *                   requested_at:
+ *                     type: string
+ *                     format: date-time
+ *       400:
+ *         description: Missing user_id parameter
+ *       500:
+ *         description: Server error
+ */
+
 app.get("/exchanges", async (req, res) => {
   const userId = req.query.user_id;
   if (!userId) {
