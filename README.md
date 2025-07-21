@@ -23,14 +23,25 @@
 
 ## 📋 Table of Contents
 
+- [Technology Stack](#-technology-stack)
 - [Architecture Overview](#-architecture-overview)
 - [Microservices Breakdown](#-microservices-breakdown)
 - [Performance Comparison](#-performance-comparison)
+- [Load Testing](#-load-testing)
 - [Quick Start](#-quick-start)
 - [API Documentation](#-api-documentation)
-- [Technology Stack](#-technology-stack)
-- [Load Testing](#-load-testing)
 - [Future Enhancements](#-future-enhancements)
+
+## 🛠️ Technology Stack
+
+| Category             | Technology | Purpose                         |
+| -------------------- | ---------- | ------------------------------- |
+| **Runtime**          | Node.js    | JavaScript runtime environment  |
+| **Framework**        | Express.js | Web application framework       |
+| **Message Broker**   | RabbitMQ   | Asynchronous message processing |
+| **Database**         | MySQL      | Relational data storage         |
+| **Containerization** | Docker     | Application containerization    |
+| **Load Testing**     | Artillery  | Performance benchmarking        |
 
 ## 🏗️ Architecture Overview
 
@@ -170,6 +181,133 @@ config:
     - Sync Service Test (50%)
 ```
 
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js (v16+)
+- Docker & Docker Compose
+
+### Installation
+
+1. **Clone the repository**
+
+```bash
+git clone https://github.com/yourusername/decentralized-book-exchange.git
+cd decentralized-book-exchange
+```
+
+2. **Create .env for each service with data**
+
+```bash
+DB_HOST=mysql
+DB_USER=root
+DB_PASSWORD=root
+DB_NAME=bookdb
+DB_PORT=3306
+```
+
+3. **Start infrastructure with Docker**
+
+```bash
+docker-compose up -d
+```
+
+## 📊 Load Testing
+
+### Running Performance Tests
+
+1. **Install Artillery**
+
+```bash
+npm install -g artillery
+```
+
+2. **Run comparison test**
+
+```bash
+artillery run test-config.yml
+```
+
+3. **Generate detailed report**
+
+```bash
+artillery report results.json
+```
+
+### Test Scenarios
+
+The load test compares:
+
+- **Async endpoint**: `/exchange/async` (Event-driven)
+- **Sync endpoint**: `/exchange/sync` (Traditional blocking)
+
+**Test Parameters:**
+
+- Duration: 60 seconds
+- Load: 20 requests/second
+- Total requests: ~1,200
+- Success rate: 100% for both services
+
+## 🔄 Message Flow Architecture
+
+### RabbitMQ Exchanges and Queues
+
+```
+📤 Exchanges:
+├── validate-user (fanout)
+├── validate-book (fanout)
+└── validation-status (direct)
+
+📥 Queues:
+├── user-validation-queue
+├── book-validation-queue
+└── exchange-updates-queue
+```
+
+### Message Processing Flow
+
+1. **Exchange Request**: Client initiates book exchange
+2. **Event Publishing**: Exchange service publishes validation events
+3. **Parallel Processing**: User and Book validation services process simultaneously
+4. **Status Updates**: Validation results published to status exchange
+5. **Final Update**: Exchange service updates transaction status
+
+## 🚦 Reliability Features
+
+- **Dead Letter Queues**: Failed message handling
+- **Retry Logic**: Automatic retry mechanisms
+- **Circuit Breaker**: Prevents cascade failures
+- **Health Checks**: Service availability monitoring
+- **Graceful Shutdown**: Clean service termination
+
+## 🔮 Future Enhancements
+
+- [ ] **Redis Caching**: Performance optimization
+- [ ] **Monitoring Dashboard**: Real-time metrics
+- [ ] **Authentication Service**: JWT-based auth
+- [ ] **Notification Service**: Real-time user updates
+- [ ] **Analytics Service**: Usage and performance insights
+
+## 📈 Monitoring & Observability
+
+### Key Metrics Tracked
+
+- Response time percentiles (P50, P95, P99)
+- Request throughput
+- Error rates
+- Queue depth and processing time
+- Database connection pool utilization
+
+### Health Endpoints
+
+```bash
+# Service health checks
+curl http://localhost:3003/health
+curl http://localhost:3002/health
+curl http://localhost:3001/health
+```
+
 ## 📚 API Documentation
 
 ### Exchange Service APIs
@@ -300,144 +438,6 @@ GET /books/book-123
   "genre": "Programming",
   "added_at": "2024-01-10T15:20:00Z"
 }
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js (v16+)
-- Docker & Docker Compose
-
-### Installation
-
-1. **Clone the repository**
-
-```bash
-git clone https://github.com/yourusername/decentralized-book-exchange.git
-cd decentralized-book-exchange
-```
-
-2. **Create .env for each service with data**
-
-```bash
-DB_HOST=mysql
-DB_USER=root
-DB_PASSWORD=root
-DB_NAME=bookdb
-DB_PORT=3306
-```
-
-3. **Start infrastructure with Docker**
-
-```bash
-docker-compose up -d
-```
-
-## 🛠️ Technology Stack
-
-| Category             | Technology | Purpose                         |
-| -------------------- | ---------- | ------------------------------- |
-| **Runtime**          | Node.js    | JavaScript runtime environment  |
-| **Framework**        | Express.js | Web application framework       |
-| **Message Broker**   | RabbitMQ   | Asynchronous message processing |
-| **Database**         | MySQL      | Relational data storage         |
-| **Containerization** | Docker     | Application containerization    |
-| **Load Testing**     | Artillery  | Performance benchmarking        |
-
-## 📊 Load Testing
-
-### Running Performance Tests
-
-1. **Install Artillery**
-
-```bash
-npm install -g artillery
-```
-
-2. **Run comparison test**
-
-```bash
-artillery run test-config.yml
-```
-
-3. **Generate detailed report**
-
-```bash
-artillery report results.json
-```
-
-### Test Scenarios
-
-The load test compares:
-
-- **Async endpoint**: `/exchange/async` (Event-driven)
-- **Sync endpoint**: `/exchange/sync` (Traditional blocking)
-
-**Test Parameters:**
-
-- Duration: 60 seconds
-- Load: 20 requests/second
-- Total requests: ~1,200
-- Success rate: 100% for both services
-
-## 🔄 Message Flow Architecture
-
-### RabbitMQ Exchanges and Queues
-
-```
-📤 Exchanges:
-├── validate-user (fanout)
-├── validate-book (fanout)
-└── validation-status (direct)
-
-📥 Queues:
-├── user-validation-queue
-├── book-validation-queue
-└── exchange-updates-queue
-```
-
-### Message Processing Flow
-
-1. **Exchange Request**: Client initiates book exchange
-2. **Event Publishing**: Exchange service publishes validation events
-3. **Parallel Processing**: User and Book validation services process simultaneously
-4. **Status Updates**: Validation results published to status exchange
-5. **Final Update**: Exchange service updates transaction status
-
-## 🚦 Reliability Features
-
-- **Dead Letter Queues**: Failed message handling
-- **Retry Logic**: Automatic retry mechanisms
-- **Circuit Breaker**: Prevents cascade failures
-- **Health Checks**: Service availability monitoring
-- **Graceful Shutdown**: Clean service termination
-
-## 🔮 Future Enhancements
-
-- [ ] **Redis Caching**: Performance optimization
-- [ ] **Monitoring Dashboard**: Real-time metrics
-- [ ] **Authentication Service**: JWT-based auth
-- [ ] **Notification Service**: Real-time user updates
-- [ ] **Analytics Service**: Usage and performance insights
-
-## 📈 Monitoring & Observability
-
-### Key Metrics Tracked
-
-- Response time percentiles (P50, P95, P99)
-- Request throughput
-- Error rates
-- Queue depth and processing time
-- Database connection pool utilization
-
-### Health Endpoints
-
-```bash
-# Service health checks
-curl http://localhost:3003/health
-curl http://localhost:3002/health
-curl http://localhost:3001/health
 ```
 
 ## 🤝 Contributing
