@@ -269,6 +269,12 @@ app.delete("/books/:id", async (req, res) => {
   }
 });
 
+
+app.get("/health", (req, res) => {
+  log("GET /health - Health check");
+  res.json({ status: "User service is healthy" });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
   console.log(`Inventory service running on port ${PORT}`)

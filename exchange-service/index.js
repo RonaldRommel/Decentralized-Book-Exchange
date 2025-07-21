@@ -370,6 +370,11 @@ app.post("/exchange/sync", async (req, res) => {
   }
 });
 
+app.get("/health", (req, res) => {
+  log("GET /health - Health check");
+  res.json({ status: "User service is healthy" });
+});
+
 const PORT = process.env.PORT || 3002;
 async function start() {
   await connectRabbitMQ();

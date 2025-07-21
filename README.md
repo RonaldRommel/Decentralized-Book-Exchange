@@ -46,79 +46,98 @@
                    │     MySQL       │    ┌─────────────────────┐
                    │   Database      │    │   Validation        │
                    └─────────────────┘    │   Services          │
-                                         └─────────────────────┘
-                                               │        │
-                                         ┌──────────┐ ┌──────────┐
-                                         │   User   │ │   Book   │
-                                         │Validation│ │Validation│
-                                         └──────────┘ └──────────┘
+                            │              └─────────────────────┘
+                            │                       │
+                   ┌────────┼────────┐             │
+                   │        │        │             ▼
+             ┌──────────┐ ┌─────────────┐ ┌─────────────────┐
+             │   User   │ │ Inventory   │ │   Validation    │
+             │ Service  │ │  Service    │ │   Coordinator   │
+             └──────────┘ └─────────────┘ └─────────────────┘
 ```
 
-### Event-Driven Flow
+### Event-Driven Validation Flow
 
 **Synchronous Flow (Legacy):**
 
 ```
-Client → Exchange Service → User Service → Book Service → Database → Response
+Client → Exchange Service → User Service → Inventory Service → Database → Response
 ```
 
 **Asynchronous Flow (Optimized):**
 
 ```
-Client → Exchange Service → [Immediate Response]
+Client → Exchange Service → [202 Accepted Response]
          ↓
-RabbitMQ → User Validation Service
+RabbitMQ → User Validation Service → Validation Result
          ↓
-RabbitMQ → Book Validation Service
+RabbitMQ → Book Validation Service → Validation Result
          ↓
-RabbitMQ → Exchange Service → Database Update
+RabbitMQ → Validation Coordinator → Final Decision → Exchange Status Update
 ```
 
 ## 🔧 Microservices Breakdown
 
-### 1. **Exchange Service** (Main API Gateway)
+### Core Business Services
 
-- **Port**: `3002`
-- **Purpose**: Orchestrates book exchange requests
+#### 1. **Exchange Service**
+
+- **Purpose**: Orchestrates book exchange requests and manages exchange lifecycle
 - **Tech Stack**: Node.js, Express, MySQL, RabbitMQ
+- **Database**: Exchange records, transaction history
 - **Key Features**:
   - RESTful API for exchange management
-  - Event publishing to validation services
+  - Event publishing for async validation
   - Status tracking and updates
 
-### 2. **User Service**
+#### 2. **User Service**
 
-- **Purpose**: User registration and profile management
+- **Purpose**: User profile management and reputation tracking
 - **Tech Stack**: Node.js, Express, MySQL
+- **Database**: User profiles, reputation scores
 - **Key Features**:
   - User CRUD operations
-  - Reputation tracking
-  - Status verification
+  - Reputation scoring system
+  - Profile management
 
-### 3. **User Validation Service**
+#### 3. **Inventory Service**
+
+- **Purpose**: Book catalog and inventory management
+- **Tech Stack**: Node.js, Express, MySQL
+- **Database**: Book details, availability status
+- **Key Features**:
+  - Book catalog management
+  - Availability tracking
+  - Book metadata storage
+
+### Validation Services (Event-Driven)
+
+#### 4. **User Validation Service**
 
 - **Purpose**: Asynchronous user eligibility verification
 - **Tech Stack**: Node.js, RabbitMQ
 - **Key Features**:
-  - Event-driven validation
-  - Reputation scoring
-  - Status publishing
+  - Reputation-based validation
+  - User status verification
+  - Event-driven processing
 
-### 4. **Book Validation Service**
+#### 5. **Book Validation Service**
 
-- **Purpose**: Book condition and ownership verification
+- **Purpose**: Book availability and condition verification
 - **Tech Stack**: Node.js, RabbitMQ
 - **Key Features**:
-  - Book condition assessment
+  - Availability checking
   - Ownership verification
-  - Validation result publishing
+  - Condition assessment
 
-### 5. **Utils Module**
+#### 6. **Validation Coordinator Service**
 
-- **Purpose**: Shared utilities and configurations
-- **Components**:
-  - `db.js`: MySQL connection pool manager
-  - `rabbitmq.js`: RabbitMQ connection manager
+- **Purpose**: Combines validation results and makes final decisions
+- **Tech Stack**: Node.js, RabbitMQ
+- **Key Features**:
+  - Result aggregation
+  - Business rule enforcement
+  - Final status publishing
 
 ## ⚡ Performance Comparison
 
@@ -151,83 +170,28 @@ config:
     - Sync Service Test (50%)
 ```
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js (v16+)
-- Docker & Docker Compose
-- MySQL
-- RabbitMQ
-
-### Installation
-
-1. **Clone the repository**
-
-```bash
-git clone https://github.com/yourusername/decentralized-book-exchange.git
-cd decentralized-book-exchange
-```
-
-2. **Start infrastructure with Docker**
-
-```bash
-docker-compose up -d mysql rabbitmq
-```
-
-3. **Install dependencies**
-
-```bash
-npm install
-```
-
-4. **Set up environment variables**
-
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-5. **Initialize database**
-
-```bash
-npm run db:migrate
-npm run db:seed
-```
-
-6. **Start all services**
-
-```bash
-# Terminal 1: Exchange Service
-npm run start:exchange
-
-# Terminal 2: User Validation Service
-npm run start:user-validation
-
-# Terminal 3: Book Validation Service
-npm run start:book-validation
-```
-
-### Using Docker (Recommended)
-
-```bash
-docker-compose up --build
-```
-
 ## 📚 API Documentation
 
 ### Exchange Service APIs
 
-#### Create Exchange
+| Method | Endpoint               | Description                              |
+| ------ | ---------------------- | ---------------------------------------- |
+| POST   | `/exchanges`           | Request to borrow a book                 |
+| GET    | `/exchanges/:id`       | Get details of an exchange               |
+| PUT    | `/exchanges/:id/state` | Update status (accepted, returned, etc.) |
+| GET    | `/exchanges?user_id=1` | Get exchanges for a given user           |
+
+#### Create Exchange Request
 
 ```http
-POST /exchange/async
+POST /exchanges
 Content-Type: application/json
 
 {
   "book_id": "book-123",
   "borrower_id": 1,
-  "lender_id": 2
+  "lender_id": 2,
+  "requested_duration": 14
 }
 ```
 
@@ -235,32 +199,33 @@ Content-Type: application/json
 
 ```json
 {
-  "transaction_id": "tx-abc123",
+  "exchange_id": "ex-abc123",
   "status": "pending_validation",
-  "message": "Exchange request received and being processed"
+  "message": "Exchange request received and being processed",
+  "created_at": "2024-01-15T10:30:00Z"
 }
 ```
 
-#### Get Exchange Status
+#### Update Exchange State
 
 ```http
-GET /exchange/:transaction_id
-```
+PUT /exchanges/ex-abc123/state
+Content-Type: application/json
 
-**Response:**
-
-```json
 {
-  "transaction_id": "tx-abc123",
-  "status": "approved",
-  "book_id": "book-123",
-  "borrower_id": 1,
-  "lender_id": 2,
-  "validated_at": "2024-01-15T10:30:00Z"
+  "status": "accepted",
+  "notes": "Book ready for pickup"
 }
 ```
 
 ### User Service APIs
+
+| Method | Endpoint                | Description                             |
+| ------ | ----------------------- | --------------------------------------- |
+| POST   | `/users`                | Create a new user                       |
+| GET    | `/users/:id`            | Get a user's profile                    |
+| PUT    | `/users/:id/reputation` | Update a user's reputation score        |
+| GET    | `/users`                | List all users (optional for admin/dev) |
 
 #### Create User
 
@@ -271,27 +236,114 @@ Content-Type: application/json
 {
   "username": "bookworm123",
   "email": "user@example.com",
-  "location": "New York"
+  "location": "New York",
+  "bio": "Love reading sci-fi novels"
 }
 ```
 
-#### Get User
+#### Update Reputation
 
 ```http
-GET /users/:id
+PUT /users/123/reputation
+Content-Type: application/json
+
+{
+  "score": 4.5,
+  "review": "Great book condition, prompt return"
+}
+```
+
+### Inventory Service APIs
+
+| Method | Endpoint     | Description                 |
+| ------ | ------------ | --------------------------- |
+| GET    | `/books`     | Get all books               |
+| POST   | `/books`     | Add a new book              |
+| GET    | `/books/:id` | Get details of a book by ID |
+| PUT    | `/books/:id` | Update book details         |
+| DELETE | `/books/:id` | Delete a book               |
+
+#### Add New Book
+
+```http
+POST /books
+Content-Type: application/json
+
+{
+  "title": "The Pragmatic Programmer",
+  "author": "David Thomas, Andrew Hunt",
+  "isbn": "978-0201616224",
+  "condition": "excellent",
+  "owner_id": 123,
+  "available": true,
+  "genre": "Programming"
+}
+```
+
+#### Get Book Details
+
+```http
+GET /books/book-123
+```
+
+**Response:**
+
+```json
+{
+  "book_id": "book-123",
+  "title": "The Pragmatic Programmer",
+  "author": "David Thomas, Andrew Hunt",
+  "isbn": "978-0201616224",
+  "condition": "excellent",
+  "owner_id": 123,
+  "available": true,
+  "genre": "Programming",
+  "added_at": "2024-01-10T15:20:00Z"
+}
+```
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js (v16+)
+- Docker & Docker Compose
+
+### Installation
+
+1. **Clone the repository**
+
+```bash
+git clone https://github.com/yourusername/decentralized-book-exchange.git
+cd decentralized-book-exchange
+```
+
+2. **Create .env for each service with data**
+
+```bash
+DB_HOST=mysql
+DB_USER=root
+DB_PASSWORD=root
+DB_NAME=bookdb
+DB_PORT=3306
+```
+
+3. **Start infrastructure with Docker**
+
+```bash
+docker-compose up -d
 ```
 
 ## 🛠️ Technology Stack
 
-| Category               | Technology | Purpose                         |
-| ---------------------- | ---------- | ------------------------------- |
-| **Runtime**            | Node.js    | JavaScript runtime environment  |
-| **Framework**          | Express.js | Web application framework       |
-| **Message Broker**     | RabbitMQ   | Asynchronous message processing |
-| **Database**           | MySQL      | Relational data storage         |
-| **Containerization**   | Docker     | Application containerization    |
-| **Load Testing**       | Artillery  | Performance benchmarking        |
-| **Process Management** | PM2        | Production process management   |
+| Category             | Technology | Purpose                         |
+| -------------------- | ---------- | ------------------------------- |
+| **Runtime**          | Node.js    | JavaScript runtime environment  |
+| **Framework**        | Express.js | Web application framework       |
+| **Message Broker**   | RabbitMQ   | Asynchronous message processing |
+| **Database**         | MySQL      | Relational data storage         |
+| **Containerization** | Docker     | Application containerization    |
+| **Load Testing**     | Artillery  | Performance benchmarking        |
 
 ## 📊 Load Testing
 
@@ -363,8 +415,6 @@ The load test compares:
 
 ## 🔮 Future Enhancements
 
-- [ ] **Kubernetes Deployment**: Container orchestration
-- [ ] **GraphQL API**: Flexible data querying
 - [ ] **Redis Caching**: Performance optimization
 - [ ] **Monitoring Dashboard**: Real-time metrics
 - [ ] **Authentication Service**: JWT-based auth
@@ -385,6 +435,7 @@ The load test compares:
 
 ```bash
 # Service health checks
+curl http://localhost:3003/health
 curl http://localhost:3002/health
 curl http://localhost:3001/health
 ```
@@ -405,12 +456,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Your Name**
 
-- GitHub: [@yourusername](https://github.com/yourusername)
-- LinkedIn: [Your LinkedIn](https://linkedin.com/in/yourprofile)
-- Email: your.email@example.com
+- GitHub: [@RonaldRommel](https://github.com/RonaldRommel/)
+- LinkedIn: [Ronald Rommel](https://www.linkedin.com/in/ronald-rommel/)
 
 ---
 
 ⭐ **Star this repository if you found it helpful!**
 
-_Built with ❤️ and lots of ☕ by [Your Name]_
+_Built with ❤️ and lots of ☕ by Ronald Rommel_

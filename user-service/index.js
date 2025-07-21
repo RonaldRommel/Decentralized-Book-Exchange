@@ -187,6 +187,11 @@ app.put("/users/:id/reputation", async (req, res) => {
   }
 });
 
+app.get("/health", (req, res) => {
+  log("GET /health - Health check");
+  res.json({ status: "User service is healthy" });
+});
+
 const PORT = process.env.PORT || 3001;
 if (process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => console.log(`User service running on port ${PORT}`));
