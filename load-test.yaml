@@ -1,0 +1,28 @@
+config:
+  target: "http://localhost:3002"
+  phases:
+    - duration: 60
+      arrivalRate: 20
+  plugins:
+    metrics-by-endpoint: {}
+
+scenarios:
+  - name: "Async Service Test"
+    weight: 50
+    flow:
+      - post:
+          url: "/exchange/async" # your async endpoint
+          json:
+            book_id: "book-001"
+            borrower_id: 1
+            lender_id: 3
+
+  - name: "Sync Service Test"
+    weight: 50
+    flow:
+      - post:
+          url: "/exchange/sync" # your sync endpoint
+          json:
+            book_id: "book-001"
+            borrower_id: 1
+            lender_id: 3

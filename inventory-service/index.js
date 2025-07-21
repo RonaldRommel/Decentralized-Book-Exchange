@@ -15,6 +15,8 @@ const dynamo = new AWS.DynamoDB.DocumentClient({
   secretAccessKey: "dummy",
 });
 
+const log = (...args) => console.log(`[${new Date().toISOString()}]`, ...args);
+
 /**
  * @swagger
  * /books:
@@ -35,10 +37,13 @@ const dynamo = new AWS.DynamoDB.DocumentClient({
  */
 
 app.get("/books", async (req, res) => {
+  log("GET /books - Fetching all books");
   try {
     const result = await dynamo.scan({ TableName: "books" }).promise();
+    log(`Fetched ${result.Items.length} books`);
     res.json(result.Items);
   } catch (err) {
+    log("Error fetching books:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -71,7 +76,7 @@ app.get("/books", async (req, res) => {
 
 app.get("/books/:book_id", async (req, res) => {
   const { book_id } = req.params;
-
+  log("GET /books/:book_id - Fetching book:", book_id);
   try {
     const result = await dynamo
       .get({
@@ -81,12 +86,13 @@ app.get("/books/:book_id", async (req, res) => {
       .promise();
 
     if (!result.Item) {
+      log("Book not found:", book_id);
       return res.status(404).json({ error: "Book not found" });
     }
-
+    log("Book found:", result.Item);
     res.json(result.Item);
   } catch (err) {
-    console.error(err);
+    log("Error fetching book:", err.message);
     res.status(500).json({ error: "Failed to retrieve book" });
   }
 });
@@ -130,8 +136,9 @@ app.get("/books/:book_id", async (req, res) => {
 
 app.post("/books", async (req, res) => {
   const { title, author, owner_id, available, created_at } = req.body;
-
+  log("POST /books - Creating book:", { title, author, owner_id, available });
   if (!title || !owner_id || typeof available !== "boolean") {
+    log("Validation error - Missing required fields");
     return res.status(400).json({
       error: "title, owner_id, and available (boolean) are required",
     });
@@ -155,10 +162,10 @@ app.post("/books", async (req, res) => {
         },
       })
       .promise();
-
+    log("Book created successfully:", book_id);
     res.status(201).json({ message: "Book added", book_id });
   } catch (err) {
-    console.error("Error inserting book:", err);
+    log("Error inserting book:", err.message);
     res.status(500).json({ error: "Failed to create book" });
   }
 });
@@ -196,7 +203,9 @@ app.post("/books", async (req, res) => {
 app.put("/books/:id", async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
+  const { title, available } = req.body;
 
+  log("PUT /books/:id - Updating book:", id, { title, available });
   try {
     const updateParams = {
       TableName: "books",
@@ -213,10 +222,11 @@ app.put("/books/:id", async (req, res) => {
       ConditionExpression: "attribute_exists(book_id)",
       ReturnValues: "UPDATED_NEW",
     };
-
     const result = await dynamo.update(updateParams).promise();
+    log("Book updated:", result.Attributes);
     res.json({ message: "Book updated ok", updated: result.Attributes });
   } catch (err) {
+    log("Error updating book:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -242,6 +252,7 @@ app.put("/books/:id", async (req, res) => {
  */
 app.delete("/books/:id", async (req, res) => {
   const { id } = req.params;
+  log("DELETE /books/:id - Deleting book:", id);
 
   try {
     await dynamo
@@ -250,9 +261,10 @@ app.delete("/books/:id", async (req, res) => {
         Key: { book_id: id },
       })
       .promise();
-
+    log("Book deleted:", id);
     res.json({ message: "Book deleted" });
   } catch (err) {
+    log("Error deleting book:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

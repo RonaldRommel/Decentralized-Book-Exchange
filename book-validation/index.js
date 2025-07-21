@@ -7,7 +7,10 @@ const axios = require("axios");
   const channel = getChannel();
   const queue = "validate-book";
   await channel.assertQueue(queue);
-
+  await channel.assertExchange("validation-complete", "direct", {
+    durable: false,
+  });
+  await channel.assertQueue("final-validator");
   console.log("🧑‍💼 User validator listening on", queue);
 
   channel.consume(queue, async (msg) => {
@@ -39,6 +42,11 @@ const axios = require("axios");
           [status, exchange_id]
         );
         console.log(`✅ Book ${book_id} is ${status}`);
+        channel.publish(
+          "validation-complete",
+          "book.validated",
+          Buffer.from(JSON.stringify({ exchange_id, book_id, status }))
+        );
         channel.ack(msg);
       }
     }

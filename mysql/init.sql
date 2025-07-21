@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL,
   reputation INT DEFAULT 0,
-  location VARCHAR(255),           -- optional field
+  location VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS exchanges (
   validation_status_user ENUM('pending', 'valid', 'invalid') DEFAULT 'pending',
   validation_status_book ENUM('pending', 'valid', 'invalid') DEFAULT 'pending'
 );
+
+TRUNCATE users;
+TRUNCATE exchanges;
 
 INSERT INTO users (id, name, email, reputation, location)
 VALUES

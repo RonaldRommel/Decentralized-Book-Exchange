@@ -53,6 +53,7 @@ services:
       - "3002:3002"
     depends_on:
       - mysql
+      - rabbitmq
     env_file:
       - ./exchange-service/.env
     volumes:
@@ -64,8 +65,8 @@ services:
     image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
-      - "5672:5672" # AMQP protocol
-      - "15672:15672" # Management UI
+      - "5672:5672" 
+      - "15672:15672" 
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -76,6 +77,9 @@ services:
       - "3003:3003"
     depends_on:
       - rabbitmq
+      - mysql
+    env_file:
+      - ./user-validation/.env
     volumes:
       - .:/app
     working_dir: /app/user-validation
@@ -87,7 +91,24 @@ services:
       - "3004:3004"
     depends_on:
       - rabbitmq
+      - mysql
+    env_file:
+      - ./book-validation/.env
     volumes:
       - .:/app
     working_dir: /app/book-validation
+    command: npm run dev
+  
+  validation-service:
+    build: ./validation-service
+    ports:
+      - "3005:3005"
+    depends_on:
+      - rabbitmq
+      - mysql
+    env_file:
+      - ./validation-service/.env
+    volumes:
+      - .:/app
+    working_dir: /app/validation-service
     command: npm run dev
